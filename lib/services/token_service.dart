@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'api_config.dart';
+import 'device_id_store.dart'; // ⬅️ اضافه شد
 
 class TokenService {
   TokenService._();
@@ -10,19 +11,20 @@ class TokenService {
   static const Duration _timeout = Duration(seconds: 20);
 
   /// POST /api/apply-token
-  /// Body: { uid, codeId, deviceId?, deviceInfo? }
+  /// Body: { uid, codeId, deviceId, deviceInfo? }
   Future<ActivateResult> applyToken({
     required String uid,
     required String codeId,
-    String? deviceId,
     Map<String, dynamic>? deviceInfo,
   }) async {
-    final uri = Uri.parse('${kApiBaseUrl}/api/apply-token');
+    // شناسه دستگاه را از ذخیره‌سازی پایدار می‌گیریم
+    final deviceId = await DeviceIdStore.get();
 
+    final uri = Uri.parse('${kApiBaseUrl}/api/apply-token');
     final body = jsonEncode({
       'uid': uid,
       'codeId': codeId,
-      if (deviceId != null && deviceId.isNotEmpty) 'deviceId': deviceId,
+      'deviceId': deviceId, // همیشه ارسال می‌شود
       if (deviceInfo != null) 'deviceInfo': deviceInfo,
     });
 

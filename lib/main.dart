@@ -21,6 +21,7 @@ import 'ui/settings_screen.dart';
 import 'services/theme_service.dart';
 import 'services/user_service.dart';
 import 'services/device_identity_channel.dart'; // ⬅️ فقط از سرویس استفاده می‌کنیم
+import 'services/device_id_store.dart'; // ⬅️ اضافه شد
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,9 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // ✅ ساخت یا خواندن شناسه پایدار قبل از بوت کاربر
+  await DeviceIdStore.getOrCreate();
 
   // 2) ساخت/ورود کاربر مهمان + ثبت دستگاه
   await _bootstrapUser();

@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:vpn_app/services/user_service.dart'; // برای saveUserLanguage
+import 'package:vpn_app/services/user_service.dart'; // مسیر را با نام پکیج خودت هماهنگ کن
 
-// 🔧 فقط این تابع اضافه شد
+// ذخیره زبان انتخابی (لوکال + Firestore)
 Future<void> saveUserLanguage(String code) async {
-  // ذخیره لوکال برای دفعات بعد
+  // SharedPreferences
   final sp = await SharedPreferences.getInstance();
   await sp.setString('app_language', code);
 
-  // ذخیره در فایراستور
+  // Firestore (روی سند users/{uid})
   await UserService.instance.setLanguage(code);
 }
 
@@ -17,14 +17,14 @@ class LanguageScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final languages = [
+    final languages = const [
       {'code': 'en', 'label': 'English'},
       {'code': 'fa', 'label': 'فارسی'},
     ];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Select language"),
+        title: const Text('Select language'),
         centerTitle: true,
       ),
       body: ListView.builder(
@@ -34,10 +34,10 @@ class LanguageScreen extends StatelessWidget {
           return ListTile(
             title: Text(lang['label']!),
             onTap: () async {
-              // ذخیره در Firestore + SharedPreferences
+              // ذخیره در SharedPreferences + Firestore
               await saveUserLanguage(lang['code']!);
 
-              // هدایت به صفحه اصلی
+              // رفتن به صفحه اصلی
               if (context.mounted) {
                 Navigator.pushReplacementNamed(context, '/main');
               }

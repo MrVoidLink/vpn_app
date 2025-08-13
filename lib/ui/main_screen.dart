@@ -11,10 +11,9 @@ import 'settings/settings_sheet.dart';
 import 'widgets/banner_carousel.dart';
 import 'widgets/glass_card.dart';
 import 'widgets/glow_blob.dart';
-import 'widgets/aurora_connect_button.dart';
+import 'widgets/aurora_connect_button.dart' as acb; // ⬅️ با prefix
 
 // سرویس‌ها
-import '../services/device_identity_channel.dart';
 import '../services/token_service.dart';
 import '../services/user_service.dart';
 
@@ -29,7 +28,7 @@ class _MainScreenState extends State<MainScreen> {
   final TextEditingController _tokenCtrl = TextEditingController();
 
   int _tab = 0;
-  ConnectState _state = ConnectState.disconnected;
+  acb.ConnectState _state = acb.ConnectState.disconnected; // از enum ویجت
   bool _activating = false;
 
   @override
@@ -74,7 +73,8 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
               ListTile(leading: Icon(Icons.home_outlined), title: Text('Home')),
-              ListTile(leading: Icon(Icons.dns_outlined), title: Text('Servers')),
+              ListTile(
+                  leading: Icon(Icons.dns_outlined), title: Text('Servers')),
               ListTile(
                   leading: Icon(Icons.person_outline), title: Text('Account')),
             ],
@@ -137,7 +137,7 @@ class _MainScreenState extends State<MainScreen> {
                           style: TextStyle(fontWeight: FontWeight.w700)),
                       const SizedBox(height: 12),
                       Center(
-                        child: AuroraConnectButton(
+                        child: acb.AuroraConnectButton(
                           size: 190,
                           state: _state,
                           onTap: _handleConnectTap,
@@ -147,10 +147,10 @@ class _MainScreenState extends State<MainScreen> {
                       Row(
                         children: [
                           _PingDot(
-                            color: _state == ConnectState.connected
+                            color: _state == acb.ConnectState.connected
                                 ? Colors.green
                                 : Colors.grey,
-                            label: _state == ConnectState.connected
+                            label: _state == acb.ConnectState.connected
                                 ? 'Ping 24ms'
                                 : 'Disconnected',
                           ),
@@ -238,15 +238,15 @@ class _MainScreenState extends State<MainScreen> {
 
   // دمو اتصال
   void _handleConnectTap() async {
-    if (_state == ConnectState.disconnected) {
-      setState(() => _state = ConnectState.connecting);
+    if (_state == acb.ConnectState.disconnected) {
+      setState(() => _state = acb.ConnectState.connecting);
       await Future.delayed(const Duration(milliseconds: 1500));
       if (!mounted) return;
-      setState(() => _state = ConnectState.connected);
-    } else if (_state == ConnectState.connected) {
-      setState(() => _state = ConnectState.disconnected);
+      setState(() => _state = acb.ConnectState.connected);
+    } else if (_state == acb.ConnectState.connected) {
+      setState(() => _state = acb.ConnectState.disconnected);
     } else {
-      setState(() => _state = ConnectState.disconnected);
+      setState(() => _state = acb.ConnectState.disconnected);
     }
   }
 
@@ -266,34 +266,29 @@ class _MainScreenState extends State<MainScreen> {
 
     setState(() => _activating = true);
     try {
-      // 1) uid گرفتن
+      // 1) uid
       final uid = UserService.instance.uid;
       if (uid.isEmpty) {
         throw Exception('No UID. Make sure ensureGuestUser() ran.');
       }
 
-      // 2) DeviceClaim از نیتیو
-      final claim = await getDeviceClaim();
-      final deviceId = (claim['deviceId'] as String?) ?? '';
-
-      // 3) deviceInfo
+      // 2) deviceInfo
       final di = DeviceInfoPlugin();
       final pkg = await PackageInfo.fromPlatform();
       final platform = Platform.isAndroid ? 'android' : 'ios';
       final model = Platform.isAndroid
-          ? (await di.androidInfo).model ?? 'Android'
-          : (await di.iosInfo).utsname.machine ?? 'iPhone';
+          ? (await di.androidInfo).model
+          : (await di.iosInfo).utsname.machine;
       final deviceInfo = {
         'platform': platform,
         'model': model,
         'appVersion': pkg.version,
       };
 
-      // 4) کال API
+      // 3) کال API (TokenService خودش deviceId را می‌خواند)
       final result = await TokenService.instance.applyToken(
         uid: uid,
         codeId: token,
-        deviceId: deviceId,
         deviceInfo: deviceInfo,
       );
 
@@ -311,7 +306,7 @@ class _MainScreenState extends State<MainScreen> {
           ),
         );
 
-        // TODO: آپدیت UserService/حالت UI با داده‌های برگشتی (plan, expiresAt, ...)
+        // TODO: آپدیت UserService/حالت UI
       } else {
         debugPrint('apply-token FAIL => ${result.error}');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -325,8 +320,9 @@ class _MainScreenState extends State<MainScreen> {
         SnackBar(content: Text('Activation error: $e')),
       );
     } finally {
-      if (!mounted) return;
-      setState(() => _activating = false);
+      if (mounted) {
+        setState(() => _activating = false);
+      }
     }
   }
 }
