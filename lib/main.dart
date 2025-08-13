@@ -1,60 +1,101 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:flutter_localized_locales/flutter_localized_locales.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
+// Firebase options (توسط flutterfire ساخته شده)
+import 'firebase_options.dart';
+
+// Theme
 import 'theme/app_theme.dart';
-import 'services/locale_service.dart';
 
-// صفحات
+// Screens
 import 'ui/splash_screen.dart';
 import 'ui/language_screen.dart';
 import 'ui/start_screen.dart';
 import 'ui/main_screen.dart';
+import 'ui/settings_screen.dart';
 
-// لیست زبان‌ها (ثابت خودمان)
-import 'constants/app_locales.dart';
+// Services
+import 'services/theme_service.dart';
+import 'services/user_service.dart';
+import 'services/device_identity_channel.dart'; // ⬅️ فقط از سرویس استفاده می‌کنیم
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await LocaleService.init(); // زبان ذخیره‌شده را لود می‌کند
-  runApp(const MyApp());
+
+  // 1) Init Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // 2) ساخت/ورود کاربر مهمان + ثبت دستگاه
+  await _bootstrapUser();
+
+  // 3) Init theme preferences (dark/light/system/timeBased)
+  await ThemeController.instance.init();
+
+  // ✅ تست موقتی: از نیتیو claim بگیر و در کنسول Flutter چاپ کن
+  try {
+    final claim = await getDeviceClaim(); // از سرویس می‌آید
+    debugPrint('DeviceClaim(F): $claim');
+  } catch (e) {
+    debugPrint('DeviceClaim(F) ERROR: $e');
+  }
+
+  runApp(const LoopaApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+// ⬇️ تابع بوت کاربر (جمع‌آوری اطلاعات و صدا زدن UserService)
+Future<void> _bootstrapUser() async {
+  final pkg = await PackageInfo.fromPlatform();
+  final di = DeviceInfoPlugin();
+
+  final platform = Platform.isAndroid ? 'android' : 'ios';
+  final model = Platform.isAndroid
+      ? (await di.androidInfo).model ?? 'Android'
+      : (await di.iosInfo).utsname.machine ?? 'iPhone';
+
+  await UserService.instance.ensureGuestUser(
+    language: 'fa',              // فعلاً پیش‌فرض؛ بعداً از prefs/lang واقعی می‌گیریم
+    appVersion: pkg.version,     // مثل "1.0.0"
+    platform: platform,
+    deviceModel: model,
+  );
+
+  await UserService.instance.registerCurrentDevice();
+}
+
+class LoopaApp extends StatelessWidget {
+  const LoopaApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // با تغییر زبان، اپ زنده رفرش می‌شود
-    return ValueListenableBuilder<Locale?>(
-      valueListenable: LocaleService.locale,
-      builder: (_, loc, __) {
+    final themeCtrl = ThemeController.instance;
+
+    return AnimatedBuilder(
+      animation: themeCtrl,
+      builder: (context, _) {
         return MaterialApp(
-          title: 'VPN Client',
           debugShowCheckedModeBanner: false,
+          title: 'loopa vpn',
 
-          // چندزبانه
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-            LocaleNamesLocalizationsDelegate(), // نمایش نام بومی زبان‌ها
-          ],
-          supportedLocales: kSupportedLocales,
-          locale: loc, // همان زبانی که کاربر انتخاب کرده
+          // تم‌ها
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: themeCtrl.themeMode,
 
-          // تم
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.system,
-
-          // ناوبری
-          home: const SplashScreen(),
+          // مسیرها
           routes: {
             '/language': (_) => const LanguageScreen(),
             '/start': (_) => const StartScreen(),
             '/main': (_) => const MainScreen(),
+            '/settings': (_) => const SettingsScreen(),
           },
+
+          // خانه: اسپلش (خودش مقصد بعدی را تعیین می‌کند)
+          home: const SplashScreen(),
         );
       },
     );
