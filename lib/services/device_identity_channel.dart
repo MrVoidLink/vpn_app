@@ -12,7 +12,7 @@ Future<Map<String, dynamic>> getDeviceClaim() async {
     final result = await _deviceIdentityChannel.invokeMethod('makeClaim');
 
     if (result is Map) {
-      return Map<String, dynamic>.from(result as Map);
+      return Map<String, dynamic>.from(result);
     }
     if (result is String) {
       return Map<String, dynamic>.from(jsonDecode(result) as Map);

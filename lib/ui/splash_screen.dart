@@ -206,7 +206,6 @@ class _GlowBlob extends StatelessWidget {
   final double opacity;
 
   const _GlowBlob({
-    super.key,
     required this.offset,
     required this.size,
     required this.color,

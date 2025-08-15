@@ -122,11 +122,11 @@ class ThemeController extends ChangeNotifier {
   }
 
   DateTime _nextBoundaryDateTime(DateTime fromTime) {
-    DateTime _toDate(TimeOfDay t, DateTime base) =>
+    DateTime toDate(TimeOfDay t, DateTime base) =>
         DateTime(base.year, base.month, base.day, t.hour, t.minute);
 
-    final a = _toDate(_from, fromTime);
-    final b = _toDate(_to, fromTime);
+    final a = toDate(_from, fromTime);
+    final b = toDate(_to, fromTime);
 
     final crossesMidnight = _compare(_to, _from) < 0;
 

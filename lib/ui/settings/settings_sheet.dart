@@ -1,7 +1,7 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../services/theme_service.dart';
 import '../../theme/app_theme.dart';
+import '../widgets/bottom_sheet_scaffold.dart';
 import '../widgets/glass_card.dart';
 
 class SettingsSheet {
@@ -14,208 +14,161 @@ class SettingsSheet {
       barrierColor: isDark
           ? Colors.black.withValues(alpha: 0.54)
           : Colors.black.withValues(alpha: 0.20),
-      builder: (_) => const _GlassSheet(child: SettingsPanel()),
+      builder: (_) => const _SettingsSheetBody(),
     );
   }
 }
 
-class _GlassSheet extends StatelessWidget {
-  final Widget child;
-  const _GlassSheet({required this.child});
+class _SettingsSheetBody extends StatefulWidget {
+  const _SettingsSheetBody();
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return DraggableScrollableSheet(
-      initialChildSize: 0.86,
-      minChildSize: 0.6,
-      maxChildSize: 0.96,
-      builder: (context, controller) {
-        return ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark
-                    ? Colors.black.withValues(alpha: 0.35)  // دارک: شیشه تیره
-                    : Colors.white.withValues(alpha: 0.85), // لایت: شیشه روشن
-                border: Border(
-                  top: BorderSide(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.12)
-                        : Colors.black.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-              child: ListView(
-                controller: controller,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                children: const [
-                  _SheetGrabber(),
-                  SettingsPanel(),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
+  State<_SettingsSheetBody> createState() => _SettingsSheetBodyState();
 }
 
-class _SheetGrabber extends StatelessWidget {
-  const _SheetGrabber();
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Center(
-      child: Container(
-        width: 44, height: 4,
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: isDark ? Colors.white24 : Colors.black26,
-          borderRadius: BorderRadius.circular(99),
-        ),
-      ),
-    );
-  }
-}
+class _SettingsSheetBodyState extends State<_SettingsSheetBody> {
+  // Quiet hours فقط UI (لوکال)
+  TimeOfDay _from = const TimeOfDay(hour: 22, minute: 0);
+  TimeOfDay _to   = const TimeOfDay(hour: 8,  minute: 0);
 
-/// پنل واقعی تنظیمات (Theme + Brand)
-class SettingsPanel extends StatefulWidget {
-  const SettingsPanel({super.key});
-  @override
-  State<SettingsPanel> createState() => _SettingsPanelState();
-}
-
-class _SettingsPanelState extends State<SettingsPanel> {
   final ctrl = ThemeController.instance;
 
   @override
   Widget build(BuildContext context) {
-    final brand = Theme.of(context).extension<BrandTheme>();
+    const Gradient brandGradient = AppGradients.primaryGlow;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // عنوان
-        const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 8),
-          child: Row(
-            children: [
-              Icon(Icons.tune_rounded),
-              SizedBox(width: 8),
-              Text('Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            ],
-          ),
-        ),
-
-        // --- Theme ---
+    return BottomSheetScaffold(
+      title: 'Settings',
+      childrenBuilder: (ctx) => [
+        // -------- Theme mode --------
         GlassCard(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            children: [
-              RadioListTile<AppThemePref>(
-                title: const Text('Dark'),
-                value: AppThemePref.dark,
-                groupValue: ctrl.preference,
-                onChanged: (v) async { await ctrl.setPreference(v!); setState(() {}); },
-              ),
-              RadioListTile<AppThemePref>(
-                title: const Text('Light'),
-                value: AppThemePref.light,
-                groupValue: ctrl.preference,
-                onChanged: (v) async { await ctrl.setPreference(v!); setState(() {}); },
-              ),
-              RadioListTile<AppThemePref>(
-                title: const Text('Follow system'),
-                value: AppThemePref.system,
-                groupValue: ctrl.preference,
-                onChanged: (v) async { await ctrl.setPreference(v!); setState(() {}); },
-              ),
-              RadioListTile<AppThemePref>(
-                title: const Text('Auto by time'),
-                subtitle: Text('Active: ${_fmt(ctrl.from)} → ${_fmt(ctrl.to)}'),
-                value: AppThemePref.timeBased,
-                groupValue: ctrl.preference,
-                onChanged: (v) async { await ctrl.setPreference(v!); setState(() {}); },
-              ),
-              if (ctrl.isTimeBased)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final picked = await showTimePicker(context: context, initialTime: ctrl.from);
-                            if (picked != null) { await ctrl.setTimeRange(picked, ctrl.to); setState(() {}); }
-                          },
-                          child: Text('From: ${_fmt(ctrl.from)}'),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () async {
-                            final picked = await showTimePicker(context: context, initialTime: ctrl.to);
-                            if (picked != null) { await ctrl.setTimeRange(ctrl.from, picked); setState(() {}); }
-                          },
-                          child: Text('To: ${_fmt(ctrl.to)}'),
-                        ),
-                      ),
-                    ],
-                  ),
+          child: StatefulBuilder(
+            builder: (ctx, setS) => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Theme', style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                RadioListTile<AppThemePref>(
+                  title: const Text('Dark'),
+                  value: AppThemePref.dark,
+                  groupValue: ctrl.preference,
+                  onChanged: (v) async {
+                    await ctrl.setPreference(v!);
+                    setS(() {}); setState(() {});
+                  },
                 ),
-            ],
+                RadioListTile<AppThemePref>(
+                  title: const Text('Light'),
+                  value: AppThemePref.light,
+                  groupValue: ctrl.preference,
+                  onChanged: (v) async {
+                    await ctrl.setPreference(v!);
+                    setS(() {}); setState(() {});
+                  },
+                ),
+                RadioListTile<AppThemePref>(
+                  title: const Text('Follow system'),
+                  value: AppThemePref.system,
+                  groupValue: ctrl.preference,
+                  onChanged: (v) async {
+                    await ctrl.setPreference(v!);
+                    setS(() {}); setState(() {});
+                  },
+                ),
+              ],
+            ),
           ),
         ),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-        // --- Brand preview (نمایشی)
+        // -------- Brand preview --------
         GlassCard(
-          padding: const EdgeInsets.all(14),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Brand', style: TextStyle(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 12),
+              Text('Brand colors', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 10),
               Container(
                 height: 72,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  gradient: brand?.primaryGradient ??
-                      const LinearGradient(
-                        begin: Alignment.centerLeft, end: Alignment.centerRight,
-                        colors: [kNeonPurple, kNeonCyan],
-                      ),
+                  gradient: brandGradient,
                 ),
                 alignment: Alignment.center,
                 child: const Text(
                   'loopa vpn',
                   style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.w800, fontSize: 20, letterSpacing: 0.5),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                    letterSpacing: 0.5,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
               Row(
                 children: const [
-                  _ColorChip(label: 'Neon Purple', color: kNeonPurple),
+                  _ColorChip(label: 'Primary',   color: AppColors.primary),
                   SizedBox(width: 12),
-                  _ColorChip(label: 'Neon Cyan', color: kNeonCyan),
+                  _ColorChip(label: 'Secondary', color: AppColors.secondary),
                 ],
-              ),
-              const SizedBox(height: 8),
-              const Opacity(
-                opacity: 0.7,
-                child: Text('Dark-first • Neon #6C63FF & #00C2FF', textAlign: TextAlign.start),
               ),
             ],
           ),
         ),
+
+        const SizedBox(height: 12),
+
+        // -------- Quiet hours (UI-only) --------
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Quiet hours', style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: _from,
+                        );
+                        if (picked != null) setState(() => _from = picked);
+                      },
+                      child: Text('From: ${_fmt(_from)}'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: _to,
+                        );
+                        if (picked != null) setState(() => _to = picked);
+                      },
+                      child: Text('To: ${_fmt(_to)}'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Opacity(
+                opacity: 0.7,
+                child: Text(
+                  'Only visual here; no persistence.',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
       ],
     );
   }
@@ -234,16 +187,25 @@ class _ColorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hex = '#${color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+    final int rgb = color.value & 0x00FFFFFF;
+    final String hex = '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
     return Expanded(
       child: Container(
         height: 44,
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(12),
+        ),
         alignment: Alignment.center,
         child: Text(
           '$label\n$hex',
           textAlign: TextAlign.center,
-          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
         ),
       ),
     );

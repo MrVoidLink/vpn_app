@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/theme_service.dart';
-import '../theme/app_theme.dart'; // برای دسترسی به BrandTheme
+import '../../services/theme_service.dart';
+import '../../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -10,129 +10,81 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  // Quiet hours فقط UI
+  TimeOfDay _from = const TimeOfDay(hour: 22, minute: 0);
+  TimeOfDay _to   = const TimeOfDay(hour: 8,  minute: 0);
+
   final ctrl = ThemeController.instance;
 
   @override
   Widget build(BuildContext context) {
-    final brand = Theme.of(context).extension<BrandTheme>();
+    // از گرادیانت ثابتِ تم جدید استفاده می‌کنیم (بدون BrandTheme)
+    const Gradient brandGradient = AppGradients.primaryGlow;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text(
-            'Appearance (Theme & Brand)',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 12),
-
-          // --- Theme Section ---
+          // -------- Theme mode --------
           Card(
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Column(
-                children: [
-                  RadioListTile<AppThemePref>(
-                    title: const Text('Dark'),
-                    value: AppThemePref.dark,
-                    groupValue: ctrl.preference,
-                    onChanged: (v) async {
-                      await ctrl.setPreference(v!);
-                      setState(() {});
-                    },
-                  ),
-                  RadioListTile<AppThemePref>(
-                    title: const Text('Light'),
-                    value: AppThemePref.light,
-                    groupValue: ctrl.preference,
-                    onChanged: (v) async {
-                      await ctrl.setPreference(v!);
-                      setState(() {});
-                    },
-                  ),
-                  RadioListTile<AppThemePref>(
-                    title: const Text('Follow system'),
-                    value: AppThemePref.system,
-                    groupValue: ctrl.preference,
-                    onChanged: (v) async {
-                      await ctrl.setPreference(v!);
-                      setState(() {});
-                    },
-                  ),
-                  RadioListTile<AppThemePref>(
-                    title: const Text('Auto by time'),
-                    subtitle: Text('Active: ${_fmt(ctrl.from)} → ${_fmt(ctrl.to)}'),
-                    value: AppThemePref.timeBased,
-                    groupValue: ctrl.preference,
-                    onChanged: (v) async {
-                      await ctrl.setPreference(v!);
-                      setState(() {});
-                    },
-                  ),
-                  if (ctrl.isTimeBased)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: ctrl.from,
-                                );
-                                if (picked != null) {
-                                  await ctrl.setTimeRange(picked, ctrl.to);
-                                  setState(() {});
-                                }
-                              },
-                              child: Text('From: ${_fmt(ctrl.from)}'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () async {
-                                final picked = await showTimePicker(
-                                  context: context,
-                                  initialTime: ctrl.to,
-                                );
-                                if (picked != null) {
-                                  await ctrl.setTimeRange(ctrl.from, picked);
-                                  setState(() {});
-                                }
-                              },
-                              child: Text('To: ${_fmt(ctrl.to)}'),
-                            ),
-                          ),
-                        ],
-                      ),
+              padding: const EdgeInsets.all(12),
+              child: StatefulBuilder(
+                builder: (ctx, setS) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Theme', style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    RadioListTile<AppThemePref>(
+                      title: const Text('Dark'),
+                      value: AppThemePref.dark,
+                      groupValue: ctrl.preference,
+                      onChanged: (v) async {
+                        await ctrl.setPreference(v!);
+                        setS(() {}); setState(() {});
+                      },
                     ),
-                ],
+                    RadioListTile<AppThemePref>(
+                      title: const Text('Light'),
+                      value: AppThemePref.light,
+                      groupValue: ctrl.preference,
+                      onChanged: (v) async {
+                        await ctrl.setPreference(v!);
+                        setS(() {}); setState(() {});
+                      },
+                    ),
+                    RadioListTile<AppThemePref>(
+                      title: const Text('Follow system'),
+                      value: AppThemePref.system,
+                      groupValue: ctrl.preference,
+                      onChanged: (v) async {
+                        await ctrl.setPreference(v!);
+                        setS(() {}); setState(() {});
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
 
-          const SizedBox(height: 16),
-
-          // --- Brand Preview Section ---
-          Text(
-            'Brand',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
           const SizedBox(height: 12),
+
+          // -------- Brand preview --------
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(12),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // پیش‌نمایش گرادیان برند
+                  Text('Brand colors', style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 10),
                   Container(
                     height: 72,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(14),
-                      gradient: brand?.primaryGradient as Gradient?,
+                      gradient: brandGradient,
                     ),
                     alignment: Alignment.center,
                     child: const Text(
@@ -147,18 +99,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 12),
                   Row(
-                    children: [
-                      _ColorChip(label: 'Neon Purple', color: kNeonPurple),
-                      const SizedBox(width: 12),
-                      _ColorChip(label: 'Neon Cyan', color: kNeonCyan),
+                    children: const [
+                      _ColorChip(label: 'Primary',   color: AppColors.primary),
+                      SizedBox(width: 12),
+                      _ColorChip(label: 'Secondary', color: AppColors.secondary),
                     ],
                   ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          // -------- Quiet hours (UI-only) --------
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Quiet hours', style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: _from,
+                            );
+                            if (picked != null) setState(() => _from = picked);
+                          },
+                          child: Text('From: ${_fmt(_from)}'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            final picked = await showTimePicker(
+                              context: context,
+                              initialTime: _to,
+                            );
+                            if (picked != null) setState(() => _to = picked);
+                          },
+                          child: Text('To: ${_fmt(_to)}'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
                   const Opacity(
                     opacity: 0.7,
                     child: Text(
-                      'Dark-first • Neon #6C63FF & #00C2FF',
-                      textAlign: TextAlign.start,
+                      'Only visual here; no persistence.',
+                      style: TextStyle(fontSize: 12),
                     ),
                   ),
                 ],
@@ -184,7 +181,10 @@ class _ColorChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    String hex = '#${color.value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}';
+    // خروجی HEX از value
+    final int rgb = color.value & 0x00FFFFFF;
+    final String hex = '#${rgb.toRadixString(16).padLeft(6, '0').toUpperCase()}';
+
     return Expanded(
       child: Container(
         height: 44,

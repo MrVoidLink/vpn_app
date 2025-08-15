@@ -1,17 +1,18 @@
-import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../theme/app_theme.dart';
+// تم را alias می‌کنیم تا تداخل اسم‌ها (BrandTheme/AppTheme/...) رخ ندهد
+import '../theme/app_theme.dart' as design;
+
 import 'settings/settings_sheet.dart';
+import 'account/account_sheet.dart';
 import 'widgets/banner_carousel.dart';
 import 'widgets/glass_card.dart';
 import 'widgets/glow_blob.dart';
-import 'widgets/aurora_connect_button.dart' as acb; // ⬅️ با prefix
+import 'widgets/aurora_connect_button.dart' as acb;
 
 // سرویس‌ها
 import '../services/token_service.dart';
@@ -28,8 +29,14 @@ class _MainScreenState extends State<MainScreen> {
   final TextEditingController _tokenCtrl = TextEditingController();
 
   int _tab = 0;
-  acb.ConnectState _state = acb.ConnectState.disconnected; // از enum ویجت
+  acb.ConnectState _state = acb.ConnectState.disconnected;
   bool _activating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrapUser(); // ساخت/آپدیت user و ثبت device در اولین اجرا
+  }
 
   @override
   void dispose() {
@@ -37,21 +44,48 @@ class _MainScreenState extends State<MainScreen> {
     super.dispose();
   }
 
+  Future<void> _bootstrapUser() async {
+    try {
+      final di = DeviceInfoPlugin();
+      final pkg = await PackageInfo.fromPlatform();
+      final platform = Platform.isAndroid ? 'android' : 'ios';
+      final model = Platform.isAndroid
+          ? (await di.androidInfo).model
+          : (await di.iosInfo).utsname.machine;
+
+      final langCode = WidgetsBinding.instance.platformDispatcher.locale.languageCode;
+      final language = (langCode.isNotEmpty ? langCode : 'en');
+
+      await UserService.instance.ensureGuestUser(
+        language: language,
+        appVersion: pkg.version,
+        platform: platform,
+        deviceModel: model ?? 'unknown',
+      );
+
+      await UserService.instance.registerCurrentDevice();
+    } catch (e) {
+      // ignore: avoid_print
+      print('bootstrap user/device failed: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final brand = Theme.of(context).extension<BrandTheme>();
+    final cs = Theme.of(context).colorScheme; // رنگ‌های تم
+    // استفاده از نوع از طریق alias برای رفع تداخل
+    final brand = Theme.of(context).extension<design.BrandTheme>();
+
+    // گرادیانت پس‌زمینه‌ی تیره (مشکی/طوسی)
     final bg = brand?.backgroundGradient ??
         const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [Color(0xFF0F1220), Color(0xFF0A0D18)],
         );
-    final titleGrad = brand?.primaryGradient ??
-        const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [kNeonPurple, kNeonCyan],
-        );
+
+    // عنوان با گرادیانت بنفش عمیق — بدون Cyan
+    final titleGrad = design.AppGradients.deepPurple;
 
     final mq = MediaQuery.of(context);
     final bottomForNav = mq.padding.bottom + kBottomNavigationBarHeight + 24;
@@ -73,10 +107,8 @@ class _MainScreenState extends State<MainScreen> {
                 ),
               ),
               ListTile(leading: Icon(Icons.home_outlined), title: Text('Home')),
-              ListTile(
-                  leading: Icon(Icons.dns_outlined), title: Text('Servers')),
-              ListTile(
-                  leading: Icon(Icons.person_outline), title: Text('Account')),
+              ListTile(leading: Icon(Icons.dns_outlined), title: Text('Servers')),
+              ListTile(leading: Icon(Icons.person_outline), title: Text('Account')),
             ],
           ),
         ),
@@ -109,16 +141,19 @@ class _MainScreenState extends State<MainScreen> {
           Positioned.fill(
             child: DecoratedBox(decoration: BoxDecoration(gradient: bg)),
           ),
+          // هر دو Glow بنفش؛ Cyan حذف شد
           const GlowBlob(
-              offset: Offset(-140, -120),
-              size: 280,
-              color: kNeonPurple,
-              opacity: 0.20),
+            offset: Offset(-140, -120),
+            size: 280,
+            color: design.AppColors.primaryDark,
+            opacity: 0.20,
+          ),
           const GlowBlob(
-              offset: Offset(160, 220),
-              size: 260,
-              color: kNeonCyan,
-              opacity: 0.18),
+            offset: Offset(160, 220),
+            size: 260,
+            color: design.AppColors.primary,
+            opacity: 0.18,
+          ),
 
           SafeArea(
             child: ListView(
@@ -148,14 +183,17 @@ class _MainScreenState extends State<MainScreen> {
                         children: [
                           _PingDot(
                             color: _state == acb.ConnectState.connected
-                                ? Colors.green
-                                : Colors.grey,
+                                ? design.AppColors.success // سبز موفقیت تم
+                                : cs.outline,             // طوسی/خاکستری تم
                             label: _state == acb.ConnectState.connected
                                 ? 'Ping 24ms'
                                 : 'Disconnected',
                           ),
                           const SizedBox(width: 12),
-                          const _PingDot(color: Colors.orange, label: 'Load 42%'),
+                          const _PingDot(
+                            color: design.AppColors.warning, // زرد هشدار تم
+                            label: 'Load 42%',
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -186,10 +224,11 @@ class _MainScreenState extends State<MainScreen> {
                         inputFormatters: [
                           _UpperCaseFormatter(),
                           FilteringTextInputFormatter.allow(
-                              RegExp(r'[A-Za-z0-9-]')),
+                            RegExp(r'[A-Za-z0-9-]'),
+                          ),
                         ],
-                        scrollPadding: EdgeInsets.only(
-                            bottom: bottomForKeyboard + 120),
+                        scrollPadding:
+                        EdgeInsets.only(bottom: bottomForKeyboard + 120),
                         decoration: const InputDecoration(
                           labelText: 'Enter token',
                           hintText: 'e.g. ABCD-1234 or LONG-KEY-1234-XYZ',
@@ -215,23 +254,50 @@ class _MainScreenState extends State<MainScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) {
-          if (i == 2) {
-            SettingsSheet.show(context);
-            return;
-          }
-          setState(() => _tab = i);
-        },
-        destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.person_outline), label: 'Account'),
-          NavigationDestination(
-              icon: Icon(Icons.support_agent_outlined), label: 'Support'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined), label: 'Settings'),
-        ],
+      // NavigationBar پیش‌فرض متریال ممکنه ته‌مایه آبی بده؛ اینجا تم محلی می‌زنیم
+      bottomNavigationBar: Theme(
+        data: Theme.of(context).copyWith(
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: Colors.transparent,
+            indicatorColor: cs.primary.withValues(alpha: 0.15), // بنفش کم‌رنگ
+            iconTheme: MaterialStateProperty.all(
+              IconThemeData(color: cs.onSurface.withValues(alpha: 0.9)),
+            ),
+            labelTextStyle: MaterialStateProperty.all(
+              TextStyle(color: cs.onSurface.withValues(alpha: 0.9)),
+            ),
+          ),
+        ),
+        child: NavigationBar(
+          selectedIndex: _tab,
+          onDestinationSelected: (i) {
+            final prev = _tab;
+            setState(() => _tab = i);
+
+            if (i == 0) {
+              AccountSheet.show(context).whenComplete(() {
+                if (!mounted) return;
+                setState(() => _tab = prev);
+              });
+              return;
+            }
+            if (i == 2) {
+              SettingsSheet.show(context).whenComplete(() {
+                if (!mounted) return;
+                setState(() => _tab = prev);
+              });
+              return;
+            }
+          },
+          destinations: const [
+            NavigationDestination(
+                icon: Icon(Icons.person_outline), label: 'Account'),
+            NavigationDestination(
+                icon: Icon(Icons.support_agent_outlined), label: 'Support'),
+            NavigationDestination(
+                icon: Icon(Icons.settings_outlined), label: 'Settings'),
+          ],
+        ),
       ),
     );
   }
@@ -243,14 +309,12 @@ class _MainScreenState extends State<MainScreen> {
       await Future.delayed(const Duration(milliseconds: 1500));
       if (!mounted) return;
       setState(() => _state = acb.ConnectState.connected);
-    } else if (_state == acb.ConnectState.connected) {
-      setState(() => _state = acb.ConnectState.disconnected);
     } else {
       setState(() => _state = acb.ConnectState.disconnected);
     }
   }
 
-  // فعال‌سازی توکن + ارسال به /api/apply-token
+  // فعال‌سازی توکن
   Future<void> _onActivate() async {
     final token = _tokenCtrl.text.trim();
     final isValid =
@@ -264,65 +328,30 @@ class _MainScreenState extends State<MainScreen> {
       return;
     }
 
+    FocusScope.of(context).unfocus();
+    await SystemChannels.textInput.invokeMethod('TextInput.hide');
+
     setState(() => _activating = true);
     try {
-      // 1) uid
-      final uid = UserService.instance.uid;
-      if (uid.isEmpty) {
-        throw Exception('No UID. Make sure ensureGuestUser() ran.');
-      }
+      await TokenService.instance.applyToken(token);
+      _tokenCtrl.clear();
 
-      // 2) deviceInfo
-      final di = DeviceInfoPlugin();
-      final pkg = await PackageInfo.fromPlatform();
-      final platform = Platform.isAndroid ? 'android' : 'ios';
-      final model = Platform.isAndroid
-          ? (await di.androidInfo).model
-          : (await di.iosInfo).utsname.machine;
-      final deviceInfo = {
-        'platform': platform,
-        'model': model,
-        'appVersion': pkg.version,
-      };
-
-      // 3) کال API (TokenService خودش deviceId را می‌خواند)
-      final result = await TokenService.instance.applyToken(
-        uid: uid,
-        codeId: token,
-        deviceInfo: deviceInfo,
-      );
+      final summary = await UserService.instance.getUserSummary();
+      final plan = (summary['plan'] ?? 'premium').toString();
+      final remaining = summary['remaining'];
+      final msg = (remaining is int)
+          ? 'Token activated. Plan: $plan | Remaining devices: $remaining'
+          : 'Token activated. Plan: $plan';
 
       if (!mounted) return;
-
-      if (result.ok) {
-        final data = result.data!;
-        debugPrint('apply-token OK => ${jsonEncode(data)}');
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Activated: ${data['mode']} • expires=${data['expiresAt']}',
-            ),
-          ),
-        );
-
-        // TODO: آپدیت UserService/حالت UI
-      } else {
-        debugPrint('apply-token FAIL => ${result.error}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result.error ?? 'Activation failed')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
-      debugPrint('Activation error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Activation error: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _activating = false);
-      }
+      if (mounted) setState(() => _activating = false);
     }
   }
 }
@@ -347,6 +376,7 @@ class _PingDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     return Row(
       children: [
         Container(
@@ -355,7 +385,7 @@ class _PingDot extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
-        Text(label),
+        Text(label, style: TextStyle(color: cs.onSurface)),
       ],
     );
   }

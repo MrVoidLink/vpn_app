@@ -7,15 +7,16 @@ import 'package:package_info_plus/package_info_plus.dart';
 // Firebase options (توسط flutterfire ساخته شده)
 import 'firebase_options.dart';
 
-// Theme
-import 'theme/app_theme.dart';
+// Theme  ← با alias تا تداخل AppTheme برطرف شود
+import 'theme/app_theme.dart' as design;
 
 // Screens
 import 'ui/splash_screen.dart';
 import 'ui/language_screen.dart';
 import 'ui/start_screen.dart';
-import 'ui/main_screen.dart';
-import 'ui/settings_screen.dart';
+// ← این دو تا را alias می‌کنیم تا تداخل اسم «MainScreen»/«SettingsScreen» قطع شود
+import 'ui/main_screen.dart' as mainui;
+import 'ui/settings_screen.dart' as settingsui;
 
 // Services
 import 'services/theme_service.dart';
@@ -85,17 +86,17 @@ class LoopaApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'loopa vpn',
 
-          // تم‌ها
-          theme: AppTheme.light,
-          darkTheme: AppTheme.dark,
+          // تم‌ها ← با alias
+          theme: design.AppTheme.light,
+          darkTheme: design.AppTheme.dark,
           themeMode: themeCtrl.themeMode,
 
-          // مسیرها
+          // مسیرها ← استفاده از alias برای اسکرین‌ها
           routes: {
             '/language': (_) => const LanguageScreen(),
-            '/start': (_) => const StartScreen(),
-            '/main': (_) => const MainScreen(),
-            '/settings': (_) => const SettingsScreen(),
+            '/start':    (_) => const StartScreen(),
+            '/main':     (_) => const mainui.MainScreen(),
+            '/settings': (_) => const settingsui.SettingsScreen(),
           },
 
           // خانه: اسپلش (خودش مقصد بعدی را تعیین می‌کند)
